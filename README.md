@@ -1567,7 +1567,163 @@ Authorization: Bearer <token>
 
 ---
 
+#### 9. Create New File
+
+**Endpoint:** `POST /api/projects/:projectId/files/:branch/create`
+
+**Description:** Creates a new file in the specified project and branch.
+
+**Headers Required:**
+```
+Authorization: Bearer <token>
+```
+
+**URL Parameters:**
+- `projectId`: MongoDB ObjectId of the project
+- `branch`: Branch name
+
+**Request Body:**
+```json
+{
+  "filePath": "src/utils/helpers.js",
+  "content": "// Helper functions\nexport const formatDate = (date) => {\n  return new Date(date).toLocaleDateString();\n};"
+}
+```
+
+**Response (201 Created):**
+```json
+{
+  "message": "File created successfully",
+  "path": "src/utils/helpers.js"
+}
+```
+
+**Error Responses:**
+- `400 Bad Request`: File already exists or invalid file path
+- `401 Unauthorized`: Invalid token
+- `403 Forbidden`: User doesn't have write access
+- `404 Not Found`: Project not found
+- `500 Internal Server Error`: Server error
+
+---
+
+#### 10. Create New Directory
+
+**Endpoint:** `POST /api/projects/:projectId/directories/:branch/create`
+
+**Description:** Creates a new directory in the specified project and branch.
+
+**Headers Required:**
+```
+Authorization: Bearer <token>
+```
+
+**URL Parameters:**
+- `projectId`: MongoDB ObjectId of the project
+- `branch`: Branch name
+
+**Request Body:**
+```json
+{
+  "dirPath": "src/components/common"
+}
+```
+
+**Response (201 Created):**
+```json
+{
+  "message": "Directory created successfully",
+  "path": "src/components/common"
+}
+```
+
+**Error Responses:**
+- `400 Bad Request`: Directory already exists or invalid path
+- `401 Unauthorized`: Invalid token
+- `403 Forbidden`: User doesn't have write access
+- `404 Not Found`: Project not found
+- `500 Internal Server Error`: Server error
+
+---
+
+#### 11. Delete File or Directory
+
+**Endpoint:** `DELETE /api/projects/:projectId/files/:branch/*`
+
+**Description:** Deletes a file or directory (recursively) from the project.
+
+**Headers Required:**
+```
+Authorization: Bearer <token>
+```
+
+**URL Parameters:**
+- `projectId`: MongoDB ObjectId of the project
+- `branch`: Branch name
+- `*`: File or directory path
+
+**Example:** `DELETE /api/projects/65a1b2c3d4e5f6g7h8i9j0k1/files/main/src/utils/old-helpers.js`
+
+**Response (200 OK):**
+```json
+{
+  "message": "Deleted successfully",
+  "path": "src/utils/old-helpers.js"
+}
+```
+
+**Error Responses:**
+- `400 Bad Request`: Invalid file path
+- `401 Unauthorized`: Invalid token
+- `403 Forbidden`: User doesn't have write access
+- `404 Not Found`: Project or file not found
+- `500 Internal Server Error`: Server error
+
+---
+
+#### 12. Rename File or Directory
+
+**Endpoint:** `PUT /api/projects/:projectId/files/:branch/rename`
+
+**Description:** Renames a file or directory in the project.
+
+**Headers Required:**
+```
+Authorization: Bearer <token>
+```
+
+**URL Parameters:**
+- `projectId`: MongoDB ObjectId of the project
+- `branch`: Branch name
+
+**Request Body:**
+```json
+{
+  "oldPath": "src/utils/helpers.js",
+  "newPath": "src/utils/utility-functions.js"
+}
+```
+
+**Response (200 OK):**
+```json
+{
+  "message": "Renamed successfully",
+  "oldPath": "src/utils/helpers.js",
+  "newPath": "src/utils/utility-functions.js"
+}
+```
+
+**Error Responses:**
+- `400 Bad Request`: Destination already exists or invalid paths
+- `401 Unauthorized`: Invalid token
+- `403 Forbidden`: User doesn't have write access
+- `404 Not Found`: Project or source file not found
+- `500 Internal Server Error`: Server error
+
+---
+
 ### Change Management Endpoints
+
 
 #### 1. Get Changes
 
@@ -2696,7 +2852,89 @@ font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 
 ---
 
-### 6. Change Management Module
+### 6. File Management Module
+
+#### Features:
+- **Create New Files**
+  - Create files from UI with custom paths
+  - Support for nested directory creation
+  - Automatic directory structure generation
+  - Empty file initialization
+  - Validation for duplicate files
+
+- **Create New Directories**
+  - Create folders from UI
+  - Support for nested folder structures
+  - Path-based directory creation
+  - Automatic parent directory creation
+  - Duplicate directory prevention
+
+- **Delete Files and Directories**
+  - Right-click context menu for deletion
+  - Confirmation dialog before deletion
+  - Recursive directory deletion
+  - Permission-based access control
+  - Real-time file tree updates
+
+- **Rename Files and Directories**
+  - Context menu rename option
+  - Inline rename modal
+  - Path preservation
+  - Duplicate name validation
+  - Automatic file tree refresh
+
+- **Context Menu System**
+  - Right-click on any file/folder
+  - Rename option
+  - Delete option
+  - Permission-aware actions
+  - Modern UI with hover effects
+
+- **File Management UI**
+  - "New File" button in file explorer
+  - "New Folder" button in file explorer
+  - Modal dialogs for file creation
+  - Modal dialogs for folder creation
+  - Rename modal with validation
+  - Delete confirmation dialog
+
+- **Access Control**
+  - Owner: Full file management access
+  - Write/Admin: Can create, delete, rename
+  - Read: View-only, no file operations
+  - Permission validation on backend
+
+#### API Endpoints:
+- `POST /api/projects/:projectId/files/:branch/create` - Create new file
+- `POST /api/projects/:projectId/directories/:branch/create` - Create new directory
+- `DELETE /api/projects/:projectId/files/:branch/*` - Delete file or directory
+- `PUT /api/projects/:projectId/files/:branch/rename` - Rename file or directory
+
+#### User Interface:
+- **File Explorer Toolbar**
+  - "File" button with plus icon
+  - "Folder" button with folder-plus icon
+  - Compact, modern design
+  - Tooltips for clarity
+
+- **Context Menu**
+  - Appears on right-click
+  - Rename option with edit icon
+  - Delete option with trash icon (red)
+  - Backdrop click to close
+  - Positioned at cursor location
+
+- **Modals**
+  - Create File Modal: Input for file path
+  - Create Folder Modal: Input for folder path
+  - Rename Modal: Pre-filled input with current name
+  - All modals with Create/Cancel buttons
+  - Enter key support for quick actions
+
+---
+
+### 7. Change Management Module
+
 
 #### Features:
 - **Submit Changes**

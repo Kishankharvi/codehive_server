@@ -392,4 +392,213 @@ router.get('/:projectId/files/:branch/*', authMiddleware, async (req, res) => {
     }
 });
 
+// Create new file
+router.post('/:projectId/files/:branch/create', authMiddleware, async (req, res) => {
+    try {
+        const { projectId, branch } = req.params;
+        const { filePath, content = '' } = req.body;
+
+        if (!filePath) {
+            return res.status(400).json({ message: 'File path is required' });
+        }
+
+        const project = await Project.findById(projectId);
+
+        if (!project) {
+            return res.status(404).json({ message: 'Project not found' });
+        }
+
+        // Check write access
+        const isOwner = project.owner.equals(req.user._id);
+        const hasWriteAccess = project.collaborators.some(c =>
+            c.user.equals(req.user._id) && (c.role === 'write' || c.role === 'admin')
+        );
+
+        if (!isOwner && !hasWriteAccess) {
+            return res.status(403).json({ message: 'Write access denied' });
+        }
+
+        const fullPath = path.join(process.env.PROJECTS_PATH || './projects', projectId, branch, filePath);
+
+        // Check if file already exists
+        try {
+            await fs.access(fullPath);
+            return res.status(400).json({ message: 'File already exists' });
+        } catch {
+            // File doesn't exist, proceed to create
+        }
+
+        // Ensure directory exists
+        const dir = path.dirname(fullPath);
+        await fs.mkdir(dir, { recursive: true });
+
+        // Create file
+        await fs.writeFile(fullPath, content, 'utf-8');
+
+        res.status(201).json({ message: 'File created successfully', path: filePath });
+    } catch (error) {
+        console.error('Create file error:', error);
+        res.status(500).json({ message: 'Server error creating file' });
+    }
+});
+
+// Delete file or directory
+router.delete('/:projectId/files/:branch/*', authMiddleware, async (req, res) => {
+    try {
+        const { projectId, branch } = req.params;
+        const filePath = req.params[0];
+
+        if (!filePath) {
+            return res.status(400).json({ message: 'File path is required' });
+        }
+
+        const project = await Project.findById(projectId);
+
+        if (!project) {
+            return res.status(404).json({ message: 'Project not found' });
+        }
+
+        // Check write access
+        const isOwner = project.owner.equals(req.user._id);
+        const hasWriteAccess = project.collaborators.some(c =>
+            c.user.equals(req.user._id) && (c.role === 'write' || c.role === 'admin')
+        );
+
+        if (!isOwner && !hasWriteAccess) {
+            return res.status(403).json({ message: 'Write access denied' });
+        }
+
+        const fullPath = path.join(process.env.PROJECTS_PATH || './projects', projectId, branch, filePath);
+
+        // Check if path exists
+        try {
+            const stats = await fs.stat(fullPath);
+
+            if (stats.isDirectory()) {
+                // Delete directory recursively
+                await fs.rm(fullPath, { recursive: true, force: true });
+            } else {
+                // Delete file
+                await fs.unlink(fullPath);
+            }
+
+            res.json({ message: 'Deleted successfully', path: filePath });
+        } catch (error) {
+            if (error.code === 'ENOENT') {
+                return res.status(404).json({ message: 'File or directory not found' });
+            }
+            throw error;
+        }
+    } catch (error) {
+        console.error('Delete file error:', error);
+        res.status(500).json({ message: 'Server error deleting file' });
+    }
+});
+
+// Rename file or directory
+router.put('/:projectId/files/:branch/rename', authMiddleware, async (req, res) => {
+    try {
+        const { projectId, branch } = req.params;
+        const { oldPath, newPath } = req.body;
+
+        if (!oldPath || !newPath) {
+            return res.status(400).json({ message: 'Both old and new paths are required' });
+        }
+
+        const project = await Project.findById(projectId);
+
+        if (!project) {
+            return res.status(404).json({ message: 'Project not found' });
+        }
+
+        // Check write access
+        const isOwner = project.owner.equals(req.user._id);
+        const hasWriteAccess = project.collaborators.some(c =>
+            c.user.equals(req.user._id) && (c.role === 'write' || c.role === 'admin')
+        );
+
+        if (!isOwner && !hasWriteAccess) {
+            return res.status(403).json({ message: 'Write access denied' });
+        }
+
+        const basePath = path.join(process.env.PROJECTS_PATH || './projects', projectId, branch);
+        const oldFullPath = path.join(basePath, oldPath);
+        const newFullPath = path.join(basePath, newPath);
+
+        // Check if old path exists
+        try {
+            await fs.access(oldFullPath);
+        } catch {
+            return res.status(404).json({ message: 'File or directory not found' });
+        }
+
+        // Check if new path already exists
+        try {
+            await fs.access(newFullPath);
+            return res.status(400).json({ message: 'Destination already exists' });
+        } catch {
+            // New path doesn't exist, proceed
+        }
+
+        // Ensure destination directory exists
+        const newDir = path.dirname(newFullPath);
+        await fs.mkdir(newDir, { recursive: true });
+
+        // Rename
+        await fs.rename(oldFullPath, newFullPath);
+
+        res.json({ message: 'Renamed successfully', oldPath, newPath });
+    } catch (error) {
+        console.error('Rename file error:', error);
+        res.status(500).json({ message: 'Server error renaming file' });
+    }
+});
+
+// Create new directory
+router.post('/:projectId/directories/:branch/create', authMiddleware, async (req, res) => {
+    try {
+        const { projectId, branch } = req.params;
+        const { dirPath } = req.body;
+
+        if (!dirPath) {
+            return res.status(400).json({ message: 'Directory path is required' });
+        }
+
+        const project = await Project.findById(projectId);
+
+        if (!project) {
+            return res.status(404).json({ message: 'Project not found' });
+        }
+
+        // Check write access
+        const isOwner = project.owner.equals(req.user._id);
+        const hasWriteAccess = project.collaborators.some(c =>
+            c.user.equals(req.user._id) && (c.role === 'write' || c.role === 'admin')
+        );
+
+        if (!isOwner && !hasWriteAccess) {
+            return res.status(403).json({ message: 'Write access denied' });
+        }
+
+        const fullPath = path.join(process.env.PROJECTS_PATH || './projects', projectId, branch, dirPath);
+
+        // Check if directory already exists
+        try {
+            await fs.access(fullPath);
+            return res.status(400).json({ message: 'Directory already exists' });
+        } catch {
+            // Directory doesn't exist, proceed
+        }
+
+        // Create directory
+        await fs.mkdir(fullPath, { recursive: true });
+
+        res.status(201).json({ message: 'Directory created successfully', path: dirPath });
+    } catch (error) {
+        console.error('Create directory error:', error);
+        res.status(500).json({ message: 'Server error creating directory' });
+    }
+});
+
 module.exports = router;
+
