@@ -600,5 +600,98 @@ router.post('/:projectId/directories/:branch/create', authMiddleware, async (req
     }
 });
 
+// Push to GitHub
+router.post('/:projectId/push-to-github', authMiddleware, async (req, res) => {
+    try {
+        const { projectId } = req.params;
+        const { commitMessage, branch = 'main' } = req.body;
+
+        if (!commitMessage) {
+            return res.status(400).json({ message: 'Commit message is required' });
+        }
+
+        const project = await Project.findById(projectId);
+
+        if (!project) {
+            return res.status(404).json({ message: 'Project not found' });
+        }
+
+        // Only owner can push to GitHub
+        if (!project.owner.equals(req.user._id)) {
+            return res.status(403).json({ message: 'Only project owner can push to GitHub' });
+        }
+
+        // Check if project has GitHub repo configured
+        if (!project.githubRepo || !project.githubRepo.url) {
+            return res.status(400).json({ message: 'Project is not linked to a GitHub repository' });
+        }
+
+        // Check if user has GitHub access token
+        if (!req.user.githubAccessToken) {
+            return res.status(400).json({ message: 'GitHub authentication required. Please sign in with GitHub.' });
+        }
+
+        const projectPath = path.join(process.env.PROJECTS_PATH || './projects', projectId, branch);
+
+        try {
+            const git = simpleGit(projectPath);
+
+            // Check if git is initialized
+            const isRepo = await git.checkIsRepo();
+
+            if (!isRepo) {
+                // Initialize git
+                await git.init();
+
+                // Add remote with authentication token
+                const repoUrl = project.githubRepo.url;
+                const authenticatedUrl = repoUrl.replace(
+                    'https://github.com/',
+                    `https://${req.user.githubAccessToken}@github.com/`
+                );
+
+                await git.addRemote('origin', authenticatedUrl);
+            }
+
+            // Add all files
+            await git.add('.');
+
+            // Commit
+            await git.commit(commitMessage);
+
+            // Push to GitHub
+            await git.push('origin', branch);
+
+            // Update project metadata
+            project.lastPushedAt = new Date();
+            project.lastPushedBy = req.user._id;
+            project.pushCount = (project.pushCount || 0) + 1;
+            await project.save();
+
+            res.json({
+                message: 'Successfully pushed to GitHub',
+                lastPushedAt: project.lastPushedAt,
+                pushCount: project.pushCount
+            });
+        } catch (gitError) {
+            console.error('Git push error:', gitError);
+
+            // Handle specific git errors
+            if (gitError.message.includes('Authentication failed')) {
+                return res.status(401).json({ message: 'GitHub authentication failed. Please reconnect your GitHub account.' });
+            }
+
+            if (gitError.message.includes('nothing to commit')) {
+                return res.status(400).json({ message: 'No changes to push' });
+            }
+
+            throw gitError;
+        }
+    } catch (error) {
+        console.error('Push to GitHub error:', error);
+        res.status(500).json({ message: 'Server error pushing to GitHub: ' + error.message });
+    }
+});
+
 module.exports = router;
 

@@ -11,7 +11,6 @@ const SocketHandler = require('./sockets/socketHandler');
 // Initialize express app
 const app = express();
 const server = http.createServer(app);
-app.use(cors());
 
 // Initialize Socket.io
 const io = socketIo(server, {
