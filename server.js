@@ -81,8 +81,8 @@ socketHandler.initialize();
 // Start server
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
-    console.log(`🚀 CodeHive server running on port ${PORT}`);
-    console.log(`📡 Socket.io server ready for real-time collaboration`);
+    console.log(` CodeHive server running on port ${PORT}`);
+
 });
 
 module.exports = { app, server, io };
